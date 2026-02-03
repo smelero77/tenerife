@@ -148,7 +148,7 @@ export function transformComercioAgriculturaRecord(
   }
 
   // Extract activity type
-  const actividad = extractActivityType(rawRecord.actividad_tipo);
+  const actividad = extractActivityType(rawRecord.actividad_tipo ?? null);
 
   // Build address
   const direccion = buildAddress(

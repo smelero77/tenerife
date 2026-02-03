@@ -74,8 +74,8 @@ export async function* parseCsvStream(
   let streamError: Error | null = null;
   let resolveWait: (() => void) | null = null;
 
-  const processChunk = (chunk: string) => {
-    buffer += chunk;
+  const processChunk = (chunk: string | Buffer) => {
+    buffer += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() || '';
 

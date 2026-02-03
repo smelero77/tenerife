@@ -275,7 +275,8 @@ export async function transformWikidataToSilver(
   if (surfaceAreaValue !== null && surfaceAreaValue > 0) {
     // Check the unit from the raw claim
     const rawClaim = claims?.['P2046']?.[0];
-    const unit = rawClaim?.mainsnak?.datavalue?.value?.unit;
+    const value = rawClaim?.mainsnak?.datavalue?.value;
+    const unit = (value && typeof value === 'object' && 'unit' in value) ? (value as { unit?: string }).unit : undefined;
     
     // Q25343 = square metre (m²), Q712226 = square kilometre (km²)
     // If unit is m² (Q25343) or undefined (assume m²), convert to km²
@@ -426,7 +427,7 @@ export async function transformWikidataToSilver(
     // Try direct address properties on the municipality entity
     townHallAddress = extractString(claims, 'P6375') || 
                      extractString(claims, 'P969') ||
-                     extractString(claims, 'P669');
+                     extractString(claims, 'P669') || undefined;
     if (townHallAddress) {
       console.log(`  Town hall address for ${ineCode}: ${townHallAddress} (direct property)`);
     } else {

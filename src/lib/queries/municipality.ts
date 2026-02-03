@@ -261,7 +261,7 @@ async function getStatisticCount(
 
   // Sum all counts (some tables have multiple rows per municipality)
   return data.reduce((sum, row) => {
-    const count = row[countColumn];
+    const count = (row as unknown as Record<string, unknown>)[countColumn];
     return sum + (typeof count === 'number' ? count : 0);
   }, 0);
 }

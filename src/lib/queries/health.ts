@@ -62,12 +62,12 @@ export async function getHealthServicesByIne(
       case 'otros_servicios':
         // Everything that doesn't match the other categories
         query = query
-          .not('establecimiento_tipo.ilike.%hospital%')
-          .not('establecimiento_tipo.ilike.%centro%salud%')
-          .not('establecimiento_tipo.ilike.%consultorio%')
-          .not('establecimiento_tipo.ilike.%atención%primaria%')
-          .not('establecimiento_tipo.ilike.%farmacia%')
-          .not('establecimiento_tipo.ilike.%establecimiento%');
+          .not('establecimiento_tipo', 'ilike', '%hospital%')
+          .not('establecimiento_tipo', 'ilike', '%centro%salud%')
+          .not('establecimiento_tipo', 'ilike', '%consultorio%')
+          .not('establecimiento_tipo', 'ilike', '%atención%primaria%')
+          .not('establecimiento_tipo', 'ilike', '%farmacia%')
+          .not('establecimiento_tipo', 'ilike', '%establecimiento%');
         break;
     }
   }

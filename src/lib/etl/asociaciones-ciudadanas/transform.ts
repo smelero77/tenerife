@@ -160,7 +160,7 @@ export function transformAsociacionRecord(
   }
 
   // Extract activity and scope
-  const { actividad, ambito } = extractActivityAndScope(rawRecord.actividad_tipo);
+  const { actividad, ambito } = extractActivityAndScope(rawRecord.actividad_tipo ?? null);
 
   // Build address
   const direccion = buildAddress(
