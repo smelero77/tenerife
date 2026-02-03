@@ -1,5 +1,6 @@
 import { MainLayout } from '@/components/layout/main-layout';
 import { MunicipalitySummaryComponent } from '@/components/search/municipality-summary';
+import { ScrollToSummary } from '@/components/search/scroll-to-summary';
 import { getTownAndMunicipality } from '@/lib/queries/search';
 import { getMunicipalitySummaryByIne } from '@/lib/queries/municipality';
 import { notFound } from 'next/navigation';
