@@ -50,6 +50,7 @@ export interface MunicipalityStatistics {
   instalaciones_deportivas: number;
   // Cultura
   bienes_interes_cultural: number;
+  centros_culturales: number;
   // Otros
   asociaciones_ciudadanas: number;
   empresas_industriales: number;
@@ -60,6 +61,8 @@ export interface MunicipalityStatistics {
   equipamientos_uso_publico: number;
   instalaciones_residuos: number;
   actividades_formativas: number;
+  // Administración pública
+  administraciones_publicas: number;
 }
 
 export interface MunicipalitySummary {
@@ -141,11 +144,12 @@ export async function getMunicipalitySummaryByIne(
     : null;
 
   // Get statistics from fact tables
+  // For educational centers, count only educational (exclude cultural centers)
+  const centrosEducativos = await getEducationalCentersCount(ineCode);
+  const centrosCulturales = await getCulturalCentersCount(ineCode);
+  
   const statistics: MunicipalityStatistics = {
-    centros_educativos_culturales: await getStatisticCount(
-      'fact_centro_educativo_cultural_municipio_agg',
-      ineCode
-    ),
+    centros_educativos_culturales: centrosEducativos,
     centros_medicos_farmacias: await getStatisticCount(
       'fact_centro_medico_farmacia_municipio_agg',
       ineCode
@@ -174,6 +178,7 @@ export async function getMunicipalitySummaryByIne(
       'fact_bic_municipio_agg',
       ineCode
     ),
+    centros_culturales: centrosCulturales,
     asociaciones_ciudadanas: await getStatisticCount(
       'fact_asociacion_ciudadana_municipio_agg',
       ineCode
@@ -210,6 +215,10 @@ export async function getMunicipalitySummaryByIne(
       'fact_actividad_formativa_municipio_agg',
       ineCode
     ),
+    administraciones_publicas: await getStatisticCount(
+      'fact_administracion_servicio_publico_municipio_agg',
+      ineCode
+    ),
   };
 
   return {
@@ -218,6 +227,60 @@ export async function getMunicipalitySummaryByIne(
     snapshot,
     statistics,
   };
+}
+
+/**
+ * Count educational centers (exclude cultural centers)
+ */
+async function getEducationalCentersCount(ineCode: string): Promise<number> {
+  const CULTURAL_CENTER_TYPES = [
+    'asociacion cultural',
+    'biblioteca ludoteca',
+    'centro cultural',
+    'museos salas de arte',
+  ];
+
+  const { count, error } = await supabase
+    .from('silver_centro_educativo_cultural')
+    .select('*', { count: 'exact', head: true })
+    .eq('ine_code', ineCode);
+
+  if (error) {
+    console.error('Error counting educational centers:', error);
+    return 0;
+  }
+
+  // Get all records and filter in memory (Supabase doesn't support NOT IN easily)
+  const { data } = await supabase
+    .from('silver_centro_educativo_cultural')
+    .select('centro_tipo')
+    .eq('ine_code', ineCode);
+
+  if (!data) return 0;
+
+  const filtered = data.filter((row) => 
+    row.centro_tipo && !CULTURAL_CENTER_TYPES.includes(row.centro_tipo)
+  );
+
+  return filtered.length;
+}
+
+/**
+ * Count cultural centers
+ */
+async function getCulturalCentersCount(ineCode: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('silver_centro_educativo_cultural')
+    .select('*', { count: 'exact', head: true })
+    .eq('ine_code', ineCode)
+    .in('centro_tipo', ['asociacion cultural', 'biblioteca ludoteca', 'centro cultural', 'museos salas de arte']);
+
+  if (error) {
+    console.error('Error counting cultural centers:', error);
+    return 0;
+  }
+
+  return count || 0;
 }
 
 /**
@@ -246,6 +309,7 @@ async function getStatisticCount(
     fact_equipamiento_municipio_agg: 'total',
     fact_instalacion_residuo_municipio_agg: 'total_instalaciones',
     fact_actividad_formativa_municipio_agg: 'total',
+    fact_administracion_servicio_publico_municipio_agg: 'total_administraciones',
   };
 
   const countColumn = countColumnMap[tableName] || 'total';

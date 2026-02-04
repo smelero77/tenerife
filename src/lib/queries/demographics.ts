@@ -46,17 +46,27 @@ export async function getDemographicsByIne(
 
   const year = munData.year;
 
+  // Helper function to convert values to integers
+  const toInt = (val: unknown): number => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      const parsed = parseInt(val, 10);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  };
+
   const municipality: DemographicsRow = {
     name: munData.municipio_name,
     localidad_id: null,
-    total: munData.total,
-    mujeres: munData.mujeres,
-    hombres: munData.hombres,
-    espanoles: munData.espanoles,
-    extranjeros: munData.extranjeros,
-    age_0_14: munData.age_0_14,
-    age_15_64: munData.age_15_64,
-    age_65_plus: munData.age_65_plus,
+    total: toInt(munData.total),
+    mujeres: toInt(munData.mujeres),
+    hombres: toInt(munData.hombres),
+    espanoles: toInt(munData.espanoles),
+    extranjeros: toInt(munData.extranjeros),
+    age_0_14: toInt(munData.age_0_14),
+    age_15_64: toInt(munData.age_15_64),
+    age_65_plus: toInt(munData.age_65_plus),
   };
 
   // Get all localities for this municipality and year
@@ -67,18 +77,30 @@ export async function getDemographicsByIne(
     .eq('year', year)
     .order('localidad_name', { ascending: true });
 
-  const localities: DemographicsRow[] = (localitiesData || []).map((loc) => ({
-    name: loc.localidad_name,
-    localidad_id: loc.localidad_id,
-    total: loc.total,
-    mujeres: loc.mujeres,
-    hombres: loc.hombres,
-    espanoles: loc.espanoles,
-    extranjeros: loc.extranjeros,
-    age_0_14: loc.age_0_14,
-    age_15_64: loc.age_15_64,
-    age_65_plus: loc.age_65_plus,
-  }));
+  const localities: DemographicsRow[] = (localitiesData || []).map((loc) => {
+    // Ensure all numeric values are properly converted to numbers
+    const toInt = (val: unknown): number => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') {
+        const parsed = parseInt(val, 10);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return 0;
+    };
+    
+    return {
+      name: loc.localidad_name,
+      localidad_id: loc.localidad_id,
+      total: toInt(loc.total),
+      mujeres: toInt(loc.mujeres),
+      hombres: toInt(loc.hombres),
+      espanoles: toInt(loc.espanoles),
+      extranjeros: toInt(loc.extranjeros),
+      age_0_14: toInt(loc.age_0_14),
+      age_15_64: toInt(loc.age_15_64),
+      age_65_plus: toInt(loc.age_65_plus),
+    };
+  });
 
   return {
     municipality,

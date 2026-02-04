@@ -1,11 +1,9 @@
 import { Suspense } from 'react';
 import { MainLayout } from '@/components/layout/main-layout';
-import { MunicipalitySummaryComponent } from '@/components/search/municipality-summary';
 import { MunicipalitySummarySkeleton } from '@/components/search/municipality-summary-skeleton';
 import { getMunicipalitySummaryByIne } from '@/lib/queries/municipality';
 import { notFound } from 'next/navigation';
-import { ScrollToSummary } from '@/components/search/scroll-to-summary';
-import { MunicipalityDataView } from '@/components/municipality/municipality-data-view';
+import { V0MunicipalityPage } from '@/components/municipality/v0-municipality-page';
 
 interface MunicipalityPageProps {
   params: Promise<{ ine_code: string }>;
@@ -26,12 +24,11 @@ async function MunicipalityContent({
   }
 
   return (
-    <>
-      <MunicipalitySummaryComponent data={data} selectedTownName={selectedTownName} />
-      <div className="mt-8">
-        <MunicipalityDataView ineCode={ine_code} selectedTownName={selectedTownName} />
-      </div>
-    </>
+    <V0MunicipalityPage
+      data={data}
+      selectedTownName={selectedTownName}
+      ineCode={ine_code}
+    />
   );
 }
 
@@ -45,7 +42,6 @@ export default async function MunicipalityPage({
 
   return (
     <MainLayout>
-      <ScrollToSummary />
       <Suspense fallback={<MunicipalitySummarySkeleton />}>
         <MunicipalityContent ine_code={ine_code} selectedTownName={selectedTownName} />
       </Suspense>
