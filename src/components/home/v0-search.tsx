@@ -158,18 +158,8 @@ export function V0Search({ className, onSelectMunicipality }: V0SearchProps) {
               // Delay to allow click on results
               setTimeout(() => setIsFocused(false), 200);
             }}
-            className="w-full py-4 pl-14 pr-14 bg-transparent text-[#072357] placeholder:text-[#072357]/40 focus:outline-none text-base rounded-2xl"
+            className="w-full py-4 pl-14 pr-4 bg-transparent text-[#072357] placeholder:text-[#072357]/40 focus:outline-none text-base rounded-2xl"
           />
-          <div
-            className={cn(
-              'absolute right-4 flex items-center gap-1 transition-opacity duration-300',
-              isFocused ? 'opacity-100' : 'opacity-0'
-            )}
-          >
-            <kbd className="px-2 py-1 text-xs bg-[#072357]/10 text-[#072357]/60 rounded-md font-mono">
-              Enter
-            </kbd>
-          </div>
         </div>
       </div>
 
@@ -243,16 +233,6 @@ export function V0Search({ className, onSelectMunicipality }: V0SearchProps) {
           </div>
         </div>
       )}
-
-      {/* Subtle hint text */}
-      <p
-        className={cn(
-          'text-center text-xs text-white/50 mt-3 transition-opacity duration-300',
-          isFocused && !showResults ? 'opacity-100' : 'opacity-0'
-        )}
-      >
-        Pulsa Enter para buscar
-      </p>
     </div>
   );
 }

@@ -113,7 +113,7 @@ export function V0MunicipalityPage({
             </div>
             <div className="text-center">
               <p className="text-sm sm:text-base font-bold text-[#003366]">
-                {formatNumber(snapshot?.number_of_nuclei)}
+                {formatNumber(data?.number_of_localities)}
               </p>
               <p className="text-[10px] sm:text-xs text-[#003366]/50">
                 Localidades

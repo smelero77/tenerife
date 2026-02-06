@@ -24,12 +24,14 @@ function StatHighlight({
   subLabel,
   trend,
   color,
+  showIcon = false,
 }: {
   label: string;
   value: string | number;
   subLabel: string;
   trend: "up" | "down" | "neutral";
   color: string;
+  showIcon?: boolean;
 }) {
   const TrendIcon =
     trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Minus;
@@ -45,10 +47,12 @@ function StatHighlight({
         </p>
         <p className="text-[10px] sm:text-xs text-[#072357]/50">{subLabel}</p>
       </div>
-      <TrendIcon
-        className="w-5 h-5 sm:w-6 sm:h-6 shrink-0"
-        style={{ color: trendColor }}
-      />
+      {showIcon && (
+        <TrendIcon
+          className="w-5 h-5 sm:w-6 sm:h-6 shrink-0"
+          style={{ color: trendColor }}
+        />
+      )}
     </div>
   );
 }
@@ -68,9 +72,9 @@ export function PopulationEvolutionDashboard({ data }: PopulationEvolutionDashbo
 
   // Determine trend direction
   const trendDirection =
-    data.trend === "Crecimiento"
+    data.trend === "Alcista"
       ? "up"
-      : data.trend === "Decrecimiento"
+      : data.trend === "Bajista"
       ? "down"
       : "neutral";
 
@@ -82,22 +86,25 @@ export function PopulationEvolutionDashboard({ data }: PopulationEvolutionDashbo
           label="Pob. máxima"
           value={data.maxPopulation.value}
           subLabel={`Año ${data.maxPopulation.year}`}
-          trend="up"
-          color="#00994d"
+          trend="neutral"
+          color="#072357"
+          showIcon={false}
         />
         <StatHighlight
           label="Pob. mínima"
           value={data.minPopulation.value}
           subLabel={`Año ${data.minPopulation.year}`}
-          trend="down"
+          trend="neutral"
           color="#cc9900"
+          showIcon={false}
         />
         <StatHighlight
           label="Tendencia"
           value={data.trend}
           subLabel={data.trendPeriod}
           trend={trendDirection}
-          color="#0066cc"
+          color={data.trend === "Alcista" ? "#7CB342" : data.trend === "Bajista" ? "#EF5350" : "#666"}
+          showIcon={true}
         />
       </div>
 

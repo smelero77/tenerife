@@ -32,6 +32,11 @@ import {
   getHospitalityTypes,
   getTourismEstablishmentActivities,
 } from '@/lib/queries/tourism';
+import {
+  PublicEquipment,
+  getPublicEquipmentByIne,
+  getEquipmentTypes,
+} from '@/lib/queries/equipment';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -541,12 +546,136 @@ function TouristOfficeCard({ office }: { office: TouristInformationOffice }) {
 interface V0TourismViewProps {
   ineCode: string;
   municipalityName: string;
+  /** Offset desde top para fijar barras 2 y 3 de tabs (solo Turismo) */
+  stickyOffsetTop?: number;
 }
 
-export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps) {
-  const [activeSection, setActiveSection] = useState<'accommodations' | 'hospitality' | 'establishments' | 'offices'>('accommodations');
+function EquipmentCard({ equipment, showTypeBadge = true }: { equipment: PublicEquipment; showTypeBadge?: boolean }) {
+  const [isMapOpen, setIsMapOpen] = useState(false);
+
+  const mapUrl = equipment.latitud && equipment.longitud
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${equipment.longitud - 0.002},${equipment.latitud - 0.002},${equipment.longitud + 0.002},${equipment.latitud + 0.002}&layer=mapnik&marker=${equipment.latitud},${equipment.longitud}&zoom=17`
+    : null;
+
+  return (
+    <>
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-[#072357]/5 overflow-hidden">
+        {/* Header */}
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-[#072357]/5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm sm:text-base font-semibold text-[#072357] leading-tight">
+                {equipment.equipamiento_nombre}
+              </h4>
+            </div>
+            {/* Tipo badge - Solo mostrar cuando showTypeBadge es true, alineado a la derecha */}
+            {showTypeBadge && equipment.equipamiento_tipo && (
+              <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-[#072357]/10 text-[#072357] shrink-0">
+                {equipment.equipamiento_tipo.charAt(0).toUpperCase() + equipment.equipamiento_tipo.slice(1)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-4 py-3 sm:px-5 sm:py-4 space-y-2.5">
+          {/* Espacio natural */}
+          {equipment.espacio_natural_nombre && (
+            <div className="text-xs sm:text-sm text-[#072357]/70">
+              <span className="font-medium text-[#072357]">Espacio natural:</span>{' '}
+              <span>{equipment.espacio_natural_nombre}</span>
+            </div>
+          )}
+
+          {/* Puntos de interés */}
+          {equipment.puntos_interes && (
+            <div className="text-xs sm:text-sm text-[#072357]/70">
+              <span className="font-medium text-[#072357]">Puntos de interés:</span>{' '}
+              <span>{equipment.puntos_interes}</span>
+            </div>
+          )}
+
+          {/* Map button */}
+          {equipment.latitud && equipment.longitud && (
+            <button
+              type="button"
+              onClick={() => setIsMapOpen(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#072357]/5 hover:bg-[#072357]/10 text-xs sm:text-sm text-[#072357] font-medium transition-colors"
+            >
+              <MapPin className="w-4 h-4" />
+              Ver en mapa
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Map Dialog */}
+      {mapUrl && (
+        <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
+          <DialogContent className="max-w-4xl w-full p-0 gap-0">
+            <DialogHeader className="px-6 py-4 border-b border-[#072357]/10">
+              <DialogTitle className="text-lg font-semibold text-[#072357]">
+                {equipment.equipamiento_nombre}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="relative w-full aspect-video bg-[#072357]/5">
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                scrolling="no"
+                marginHeight={0}
+                marginWidth={0}
+                src={mapUrl}
+                className="w-full h-full"
+                title={`Mapa de ${equipment.equipamiento_nombre}`}
+              />
+            </div>
+            <div className="px-6 py-4 bg-[#f8fafc] border-t border-[#072357]/5 flex items-center justify-between">
+              <div className="flex gap-2 text-xs text-[#072357]/60">
+                {equipment.espacio_natural_nombre && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {equipment.espacio_natural_nombre}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <a
+                  href={`https://www.google.com/maps?q=${equipment.latitud},${equipment.longitud}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#0066cc] hover:underline"
+                >
+                  Google Maps
+                </a>
+                <span className="text-xs text-[#072357]/30">|</span>
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${equipment.latitud}&mlon=${equipment.longitud}&zoom=15`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#0066cc] hover:underline"
+                >
+                  OpenStreetMap
+                </a>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+export function V0TourismView({ ineCode, municipalityName, stickyOffsetTop }: V0TourismViewProps) {
+  const [activeSection, setActiveSection] = useState<'accommodations' | 'hospitality' | 'establishments' | 'offices' | 'equipment'>('accommodations');
   const [activeFilter, setActiveFilter] = useState<string | 'all'>('all');
-  
+
+  // Igual que referencia: top-0, top-12, top-24 sin hueco (barras pegadas)
+  const ROW_H = 48; // h-12
+  const isSticky = stickyOffsetTop != null && stickyOffsetTop > 0;
+  const bar3Top = isSticky ? stickyOffsetTop + ROW_H : undefined;
+
   // Accommodations state
   const [allAccommodations, setAllAccommodations] = useState<TouristAccommodation[]>([]);
   const [accommodationsLoading, setAccommodationsLoading] = useState(false);
@@ -562,6 +691,10 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
   // Offices state
   const [allOffices, setAllOffices] = useState<TouristInformationOffice[]>([]);
   const [officesLoading, setOfficesLoading] = useState(false);
+
+  // Equipment state
+  const [allEquipment, setAllEquipment] = useState<PublicEquipment[]>([]);
+  const [equipmentLoading, setEquipmentLoading] = useState(false);
 
   // Load accommodations
   useEffect(() => {
@@ -619,6 +752,20 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
       });
   }, [ineCode]);
 
+  // Load equipment
+  useEffect(() => {
+    setEquipmentLoading(true);
+    getPublicEquipmentByIne(ineCode)
+      .then((data) => {
+        setAllEquipment(data);
+        setEquipmentLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error loading equipment:', error);
+        setEquipmentLoading(false);
+      });
+  }, [ineCode]);
+
   // Get unique types for accommodations
   const uniqueAccommodationTypes = useMemo(() => {
     const types = new Set<string>();
@@ -652,6 +799,17 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
     return Array.from(activities).sort();
   }, [allEstablishments]);
 
+  // Get unique equipment types
+  const uniqueEquipmentTypes = useMemo(() => {
+    const types = new Set<string>();
+    allEquipment.forEach((eq) => {
+      if (eq.equipamiento_tipo) {
+        types.add(eq.equipamiento_tipo);
+      }
+    });
+    return Array.from(types).sort();
+  }, [allEquipment]);
+
   // Count accommodations by type
   const accommodationCountByType = useMemo(() => {
     const counts: Record<string, number> = { all: allAccommodations.length };
@@ -682,6 +840,16 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
     return counts;
   }, [allEstablishments]);
 
+  // Count equipment by type
+  const equipmentCountByType = useMemo(() => {
+    const counts: Record<string, number> = { all: allEquipment.length };
+    allEquipment.forEach((eq) => {
+      const type = eq.equipamiento_tipo || 'Sin tipo';
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    return counts;
+  }, [allEquipment]);
+
   // Filter accommodations
   const filteredAccommodations = useMemo(() => {
     if (activeFilter === 'all') {
@@ -706,6 +874,14 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
     return allEstablishments.filter((est) => est.actividad === activeFilter);
   }, [allEstablishments, activeFilter]);
 
+  // Filter equipment
+  const filteredEquipment = useMemo(() => {
+    if (activeFilter === 'all') {
+      return allEquipment;
+    }
+    return allEquipment.filter((eq) => eq.equipamiento_tipo === activeFilter);
+  }, [allEquipment, activeFilter]);
+
   // Reset filter when switching sections
   useEffect(() => {
     setActiveFilter('all');
@@ -715,43 +891,78 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
     activeSection === 'accommodations' ? accommodationsLoading :
     activeSection === 'hospitality' ? hospitalityLoading :
     activeSection === 'establishments' ? establishmentsLoading :
+    activeSection === 'equipment' ? equipmentLoading :
     officesLoading;
 
   const uniqueTypes = 
     activeSection === 'accommodations' ? uniqueAccommodationTypes :
     activeSection === 'hospitality' ? uniqueHospitalityTypes :
     activeSection === 'establishments' ? uniqueEstablishmentActivities :
+    activeSection === 'equipment' ? uniqueEquipmentTypes :
     [];
 
   const countByType = 
     activeSection === 'accommodations' ? accommodationCountByType :
     activeSection === 'hospitality' ? hospitalityCountByType :
     activeSection === 'establishments' ? establishmentCountByActivity :
+    activeSection === 'equipment' ? equipmentCountByType :
     {};
 
+  const loading = accommodationsLoading || hospitalityLoading || establishmentsLoading || officesLoading || equipmentLoading;
+  const showAccommodationsTab = !accommodationsLoading && allAccommodations.length > 0;
+  const showHospitalityTab = !hospitalityLoading && allHospitality.length > 0;
+  const showEstablishmentsTab = !establishmentsLoading && allEstablishments.length > 0;
+  const showOfficesTab = !officesLoading && allOffices.length > 0;
+  const showEquipmentTab = !equipmentLoading && allEquipment.length > 0;
+  const hasAnyTab = showAccommodationsTab || showHospitalityTab || showEstablishmentsTab || showOfficesTab || showEquipmentTab;
+
+  useEffect(() => {
+    if (loading || !hasAnyTab) return;
+    const isCurrentVisible =
+      (activeSection === 'accommodations' && showAccommodationsTab) ||
+      (activeSection === 'hospitality' && showHospitalityTab) ||
+      (activeSection === 'establishments' && showEstablishmentsTab) ||
+      (activeSection === 'offices' && showOfficesTab) ||
+      (activeSection === 'equipment' && showEquipmentTab);
+    if (!isCurrentVisible) {
+      if (showAccommodationsTab) setActiveSection('accommodations');
+      else if (showHospitalityTab) setActiveSection('hospitality');
+      else if (showEstablishmentsTab) setActiveSection('establishments');
+      else if (showOfficesTab) setActiveSection('offices');
+      else if (showEquipmentTab) setActiveSection('equipment');
+      setActiveFilter('all');
+    }
+  }, [loading, hasAnyTab, activeSection, showAccommodationsTab, showHospitalityTab, showEstablishmentsTab, showOfficesTab, showEquipmentTab]);
+
   return (
-    <div className="space-y-4">
-      {/* Section selector */}
-      <div className="relative -mx-4 sm:-mx-6">
-        {/* Fade indicator on right to show more content */}
-        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f8fa] to-transparent z-10 pointer-events-none sm:hidden" />
-        
-        <div 
-          className="flex gap-2 overflow-x-auto pb-1 px-4 sm:px-6"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    <div className="space-y-0">
+      {/* Barra 2: sticky top = stickyOffsetTop, h-12 (pegada a barra 1, como referencia) */}
+      {hasAnyTab && (
+        <div
+          className="relative -mx-4 sm:-mx-6 h-12 flex items-center bg-[#f5f8fa]"
+          style={
+            isSticky && stickyOffsetTop != null
+              ? { position: 'sticky', top: stickyOffsetTop, zIndex: 20, backgroundColor: '#f5f8fa' }
+              : undefined
+          }
         >
-          <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
-          {(accommodationsLoading || hospitalityLoading || establishmentsLoading || officesLoading) ? (
-            <>
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton
-                  key={i}
-                  className="h-9 sm:h-10 w-24 sm:w-28 rounded-full shrink-0"
-                />
-              ))}
-            </>
-          ) : (
-            <>
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f8fa] to-transparent z-10 pointer-events-none sm:hidden" />
+          <div
+            className="flex gap-1.5 overflow-x-auto h-full items-center px-4 sm:px-6 min-w-0 scrollbar-hide"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {loading ? (
+              <>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton
+                    key={i}
+                    className="h-9 sm:h-10 w-24 sm:w-28 rounded-full shrink-0"
+                  />
+                ))}
+              </>
+            ) : (
+              <>
+                {showAccommodationsTab && (
               <button
                 type="button"
                 onClick={() => setActiveSection('accommodations')}
@@ -773,6 +984,8 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
                   {allAccommodations.length}
                 </span>
               </button>
+                )}
+                {showHospitalityTab && (
               <button
                 type="button"
                 onClick={() => setActiveSection('hospitality')}
@@ -794,6 +1007,8 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
                   {allHospitality.length}
                 </span>
               </button>
+                )}
+                {showEstablishmentsTab && (
               <button
                 type="button"
                 onClick={() => setActiveSection('establishments')}
@@ -815,6 +1030,8 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
                   {allEstablishments.length}
                 </span>
               </button>
+                )}
+                {showOfficesTab && (
               <button
                 type="button"
                 onClick={() => setActiveSection('offices')}
@@ -836,18 +1053,56 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
                   {allOffices.length}
                 </span>
               </button>
+                )}
+                {showEquipmentTab && (
+              <button
+                type="button"
+                onClick={() => setActiveSection('equipment')}
+                className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
+                  activeSection === 'equipment'
+                    ? 'bg-[#072357] text-white'
+                    : 'bg-white border border-[#072357]/10 text-[#072357]/70 active:bg-[#072357]/5'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                Equipamientos
+                <span 
+                  className={`min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
+                    activeSection === 'equipment'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-[#072357]/10 text-[#072357]'
+                  }`}
+                >
+                  {allEquipment.length}
+                </span>
+              </button>
+                )}
             </>
           )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Dynamic tabs based on unique types (only for first 3 sections) */}
-      {activeSection !== 'offices' && (
-        <div className="relative -mx-4 sm:-mx-6">
+      {!loading && !hasAnyTab && (
+        <div className="text-center py-8 text-[#072357]/50">
+          <Camera className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No hay datos de turismo en este municipio</p>
+        </div>
+      )}
+
+      {/* Barra 3: sticky, h-12, sin línea de separación (como referencia) */}
+      {hasAnyTab && activeSection !== 'offices' && (
+        <div
+          className="relative -mx-4 sm:-mx-6 h-12 flex items-center bg-[#f5f8fa]"
+          style={
+            bar3Top != null
+              ? { position: 'sticky', top: bar3Top, zIndex: 10, backgroundColor: '#f5f8fa' }
+              : undefined
+          }
+        >
           <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f7fa] to-transparent z-10 pointer-events-none sm:hidden" />
-
           <div
-            className="flex gap-2 overflow-x-auto pb-1 px-4 sm:px-6 scrollbar-hide"
+            className="flex gap-1.5 overflow-x-auto h-full items-center px-4 sm:px-6 min-w-0 scrollbar-hide"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {isLoading ? (
@@ -922,8 +1177,10 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
         </div>
       )}
 
-      {/* Content grid */}
-      {isLoading ? (
+      {/* Contenido con máscara de degradado para que no se vea por detrás de los tabs (como referencia) */}
+      {hasAnyTab && (
+        <div className="relative">
+          {(isLoading ? (
         <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
             <div
@@ -996,16 +1253,35 @@ export function V0TourismView({ ineCode, municipalityName }: V0TourismViewProps)
             <p className="text-sm">No hay establecimientos turísticos de este tipo en el municipio</p>
           </div>
         )
-      ) : allOffices.length > 0 ? (
+      ) : activeSection === 'offices' ? (
+        allOffices.length > 0 ? (
+          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+            {allOffices.map((office) => (
+              <TouristOfficeCard key={office.id} office={office} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-[#072357]/50">
+            <Info className="w-10 h-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No hay oficinas de información turística en el municipio</p>
+          </div>
+        )
+      ) : filteredEquipment.length > 0 ? (
         <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
-          {allOffices.map((office) => (
-            <TouristOfficeCard key={office.id} office={office} />
+          {filteredEquipment.map((equipment) => (
+            <EquipmentCard 
+              key={equipment.id} 
+              equipment={equipment} 
+              showTypeBadge={activeFilter === 'all'}
+            />
           ))}
         </div>
       ) : (
         <div className="text-center py-8 text-[#072357]/50">
-          <Info className="w-10 h-10 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No hay oficinas de información turística en el municipio</p>
+          <MapPin className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No hay equipamientos de este tipo en el municipio</p>
+        </div>
+      ))}
         </div>
       )}
     </div>

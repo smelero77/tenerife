@@ -70,6 +70,8 @@ export interface MunicipalitySummary {
   wikimedia: MunicipalityWikimedia | null;
   snapshot: MunicipalitySnapshot | null;
   statistics: MunicipalityStatistics;
+  /** Number of localities (NUC + DIS) from dim_localidad. Used for Demografía indicator. */
+  number_of_localities: number;
 }
 
 /**
@@ -142,6 +144,13 @@ export async function getMunicipalitySummaryByIne(
         snapshot_date: snapshotData.snapshot_date,
       }
     : null;
+
+  // Number of localities (NUC + DIS) from dim_localidad — matches demographics table source
+  const { count: localitiesCount } = await supabase
+    .from('dim_localidad')
+    .select('*', { count: 'exact', head: true })
+    .eq('ine_code', ineCode);
+  const number_of_localities = localitiesCount ?? 0;
 
   // Get statistics from fact tables
   // For educational centers, count only educational (exclude cultural centers)
@@ -226,6 +235,7 @@ export async function getMunicipalitySummaryByIne(
     wikimedia,
     snapshot,
     statistics,
+    number_of_localities,
   };
 }
 

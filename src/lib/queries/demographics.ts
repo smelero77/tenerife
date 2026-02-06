@@ -123,7 +123,7 @@ export interface PopulationStats {
     year: number;
     value: number;
   };
-  trend: 'Crecimiento' | 'Decrecimiento' | 'Estable';
+  trend: 'Alcista' | 'Bajista' | 'Estable';
   trendPeriod: string; // e.g., "Últimos 5 años", "Últimos 3 años", etc.
   evolution: PopulationEvolutionData[];
   municipalityName: string; // Name of the municipality
@@ -185,11 +185,11 @@ export async function getPopulationEvolution(
     ? recentYears[recentYears.length - 1].population_total - recentYears[0].population_total
     : lastValue - firstValue;
 
-  let trend: 'Crecimiento' | 'Decrecimiento' | 'Estable';
+  let trend: 'Alcista' | 'Bajista' | 'Estable';
   if (recentTrend > 0) {
-    trend = 'Crecimiento';
+    trend = 'Alcista';
   } else if (recentTrend < 0) {
-    trend = 'Decrecimiento';
+    trend = 'Bajista';
   } else {
     trend = 'Estable';
   }

@@ -14,6 +14,10 @@ import {
   PublicAdministration,
   getPublicAdministrationsByIne,
 } from '@/lib/queries/administration';
+import {
+  WasteInstallation,
+  getWasteInstallationsByIne,
+} from '@/lib/queries/waste';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -21,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Recycle } from 'lucide-react';
 
 function AdministrationCard({ administration }: { administration: PublicAdministration }) {
   const [isMapOpen, setIsMapOpen] = useState(false);
@@ -179,24 +184,228 @@ interface V0AdministrationViewProps {
   ineCode: string;
   municipalityName: string;
   showSkeleton?: boolean;
+  stickyOffsetTop?: number;
 }
 
-export function V0AdministrationView({ ineCode, municipalityName }: V0AdministrationViewProps) {
+function WasteInstallationCard({ installation }: { installation: WasteInstallation }) {
+  const [isMapOpen, setIsMapOpen] = useState(false);
+
+  const mapUrl = installation.latitud && installation.longitud
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${installation.longitud - 0.002},${installation.latitud - 0.002},${installation.longitud + 0.002},${installation.latitud + 0.002}&layer=mapnik&marker=${installation.latitud},${installation.longitud}&zoom=17`
+    : null;
+
+  // Construir dirección completa
+  const fullAddress = [
+    installation.direccion_tipo_via,
+    installation.direccion_nombre_via,
+    installation.direccion_numero,
+  ].filter(Boolean).join(' ') || installation.direccion;
+
+  return (
+    <>
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-[#072357]/5 overflow-hidden">
+        {/* Header */}
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-[#072357]/5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm sm:text-base font-semibold text-[#072357] leading-tight">
+                {installation.instalacion_nombre}
+              </h4>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-4 py-3 sm:px-5 sm:py-4 space-y-2.5">
+          {/* Address - Clickable to open map */}
+          {fullAddress && (
+            <button
+              type="button"
+              onClick={() => installation.latitud && installation.longitud && setIsMapOpen(true)}
+              className={`w-full flex items-start gap-2.5 text-left rounded-lg p-2 -m-2 transition-all ${
+                installation.latitud && installation.longitud
+                  ? 'hover:bg-[#072357]/5 hover:shadow-sm active:bg-[#072357]/10 cursor-pointer group'
+                  : 'cursor-default'
+              }`}
+              disabled={!installation.latitud || !installation.longitud}
+            >
+              <MapPin className={`w-4 h-4 shrink-0 mt-0.5 transition-colors ${
+                installation.latitud && installation.longitud
+                  ? 'text-[#0066cc] group-hover:text-[#072357]'
+                  : 'text-[#072357]/40'
+              }`} />
+              <div className="text-xs sm:text-sm text-[#072357]/70 flex-1">
+                <p className={`${
+                  installation.latitud && installation.longitud
+                    ? 'group-hover:text-[#0066cc] transition-colors'
+                    : ''
+                }`}>
+                  {fullAddress}
+                </p>
+                {installation.direccion_codigo_postal && (
+                  <p className="text-[#072357]/50">
+                    {installation.direccion_codigo_postal} {installation.municipio_nombre}
+                  </p>
+                )}
+              </div>
+            </button>
+          )}
+
+          {/* Titular y Gestiona */}
+          {(installation.titular || installation.gestiona) && (
+            <div className="space-y-1.5">
+              {installation.titular && (
+                <div className="text-xs sm:text-sm text-[#072357]/70">
+                  <span className="font-medium text-[#072357]">Titular:</span>{' '}
+                  <span>{installation.titular}</span>
+                </div>
+              )}
+              {installation.gestiona && (
+                <div className="text-xs sm:text-sm text-[#072357]/70">
+                  <span className="font-medium text-[#072357]">Gestiona:</span>{' '}
+                  <span>{installation.gestiona}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Descripción */}
+          {installation.descripcion && (
+            <div className="text-xs sm:text-sm text-[#072357]/70 leading-relaxed">
+              <p>{installation.descripcion}</p>
+            </div>
+          )}
+
+          {/* Horarios */}
+          {(installation.horario_1 || installation.horario_2) && (
+            <div className="pt-2 border-t border-[#072357]/5 space-y-1.5">
+              {installation.horario_1 && (
+                <div className="text-xs sm:text-sm text-[#072357]/70">
+                  <span className="font-medium text-[#072357]">Horario:</span>{' '}
+                  <span>{installation.horario_1}</span>
+                </div>
+              )}
+              {installation.horario_2 && (
+                <div className="text-xs sm:text-sm text-[#072357]/70">
+                  <span>{installation.horario_2}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contact info - Phone */}
+          {installation.telefono && (
+            <div className="pt-3">
+              <a
+                href={`tel:${installation.telefono.replace(/\s/g, '')}`}
+                className="flex items-center gap-2.5 text-xs sm:text-sm text-[#072357] hover:text-[#0066cc] transition-colors"
+              >
+                <Phone className="w-4 h-4 text-[#072357]/40" />
+                <span>{installation.telefono}</span>
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Map Dialog */}
+      {mapUrl && (
+        <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
+          <DialogContent className="max-w-4xl w-full p-0 gap-0">
+            <DialogHeader className="px-6 py-4 border-b border-[#072357]/10">
+              <DialogTitle className="text-lg font-semibold text-[#072357]">
+                {installation.instalacion_nombre}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="relative w-full aspect-video bg-[#072357]/5">
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                scrolling="no"
+                marginHeight={0}
+                marginWidth={0}
+                src={mapUrl}
+                className="w-full h-full"
+                title={`Mapa de ${installation.instalacion_nombre}`}
+              />
+            </div>
+            <div className="px-6 py-4 bg-[#f8fafc] border-t border-[#072357]/5 flex items-center justify-between">
+              <div className="flex gap-2 text-xs text-[#072357]/60">
+                {fullAddress && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {fullAddress}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <a
+                  href={`https://www.google.com/maps?q=${installation.latitud},${installation.longitud}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#0066cc] hover:underline"
+                >
+                  Google Maps
+                </a>
+                <span className="text-xs text-[#072357]/30">|</span>
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${installation.latitud}&mlon=${installation.longitud}&zoom=15`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#0066cc] hover:underline"
+                >
+                  OpenStreetMap
+                </a>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+const ROW_H = 48;
+
+export function V0AdministrationView({ ineCode, municipalityName, stickyOffsetTop }: V0AdministrationViewProps) {
+  const [activeSection, setActiveSection] = useState<'administrations' | 'waste'>('administrations');
   const [activeFilter, setActiveFilter] = useState<string | 'all'>('all');
   const [allAdministrations, setAllAdministrations] = useState<PublicAdministration[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [administrationsLoading, setAdministrationsLoading] = useState(false);
+
+  const isSticky = stickyOffsetTop != null && stickyOffsetTop > 0;
+  const bar2Top = isSticky ? stickyOffsetTop + ROW_H : undefined;
+  
+  // Waste installations state
+  const [allWasteInstallations, setAllWasteInstallations] = useState<WasteInstallation[]>([]);
+  const [wasteLoading, setWasteLoading] = useState(false);
 
   // Load all administrations once
   useEffect(() => {
-    setLoading(true);
+    setAdministrationsLoading(true);
     getPublicAdministrationsByIne(ineCode)
       .then((data) => {
         setAllAdministrations(data);
-        setLoading(false);
+        setAdministrationsLoading(false);
       })
       .catch((error) => {
         console.error('Error loading public administrations:', error);
-        setLoading(false);
+        setAdministrationsLoading(false);
+      });
+  }, [ineCode]);
+
+  // Load waste installations
+  useEffect(() => {
+    setWasteLoading(true);
+    getWasteInstallationsByIne(ineCode)
+      .then((data) => {
+        setAllWasteInstallations(data);
+        setWasteLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error loading waste installations:', error);
+        setWasteLoading(false);
       });
   }, [ineCode]);
 
@@ -229,95 +438,197 @@ export function V0AdministrationView({ ineCode, municipalityName }: V0Administra
     return allAdministrations.filter((admin) => admin.tipo === activeFilter);
   }, [allAdministrations, activeFilter]);
 
-  return (
-    <div className="space-y-4">
-      {/* Dynamic tabs based on unique types */}
-      <div className="relative -mx-4 sm:-mx-6">
-        {/* Fade indicator on right to show more content */}
-        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f7fa] to-transparent z-10 pointer-events-none sm:hidden" />
+  // Reset filter when switching sections
+  useEffect(() => {
+    setActiveFilter('all');
+  }, [activeSection]);
 
+  const isLoading = activeSection === 'administrations' ? administrationsLoading : wasteLoading;
+
+  const loading = administrationsLoading || wasteLoading;
+  const showAdministrationsTab = !administrationsLoading && allAdministrations.length > 0;
+  const showWasteTab = !wasteLoading && allWasteInstallations.length > 0;
+  const hasAnyTab = showAdministrationsTab || showWasteTab;
+
+  useEffect(() => {
+    if (loading || !hasAnyTab) return;
+    const isCurrentVisible =
+      (activeSection === 'administrations' && showAdministrationsTab) ||
+      (activeSection === 'waste' && showWasteTab);
+    if (!isCurrentVisible) {
+      if (showAdministrationsTab) setActiveSection('administrations');
+      else if (showWasteTab) setActiveSection('waste');
+      setActiveFilter('all');
+    }
+  }, [loading, hasAnyTab, activeSection, showAdministrationsTab, showWasteTab]);
+
+  return (
+    <div className="space-y-0">
+      {hasAnyTab && (
         <div
-          className="flex gap-2 overflow-x-auto pb-1 px-4 sm:px-6 scrollbar-hide"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="relative -mx-4 sm:-mx-6 h-12 flex items-center bg-[#f5f8fa]"
+          style={isSticky && stickyOffsetTop != null ? { position: 'sticky', top: stickyOffsetTop, zIndex: 20, backgroundColor: '#f5f8fa' } : undefined}
         >
-          {loading ? (
-            // Tabs skeleton while loading
-            <>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton
-                  key={i}
-                  className="h-9 sm:h-10 w-24 sm:w-28 rounded-full shrink-0"
-                />
-              ))}
-            </>
-          ) : (
-            <>
-              {/* Tab "Todos" */}
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f7fa] to-transparent z-10 pointer-events-none sm:hidden" />
+          <div
+            className="flex gap-1.5 overflow-x-auto h-full items-center px-4 sm:px-6 min-w-0 scrollbar-hide"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {loading ? (
+              <>
+                {[1, 2].map((i) => (
+                  <Skeleton
+                    key={i}
+                    className="h-9 sm:h-10 w-24 sm:w-28 rounded-full shrink-0"
+                  />
+                ))}
+              </>
+            ) : (
+              <>
+                {showAdministrationsTab && (
               <button
-                key="all"
                 type="button"
-                onClick={() => setActiveFilter('all')}
+                onClick={() => setActiveSection('administrations')}
                 className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
-                  activeFilter === 'all'
+                  activeSection === 'administrations'
                     ? 'bg-[#072357] text-white'
                     : 'bg-white border border-[#072357]/10 text-[#072357]/70 active:bg-[#072357]/5'
                 }`}
               >
                 <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                Todos
+                Administraciones
                 <span
                   className={`min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
-                    activeFilter === 'all'
+                    activeSection === 'administrations'
                       ? 'bg-white/20 text-white'
                       : 'bg-[#072357]/10 text-[#072357]'
                   }`}
                 >
-                  {countByType.all || 0}
+                  {allAdministrations.length}
                 </span>
               </button>
-
-              {/* Dynamic tabs for each unique type */}
-              {uniqueTypes.map((type) => {
-                const count = countByType[type] || 0;
-                const isActive = activeFilter === type;
-                // Remove "administracion publica" and "servicios", then capitalize first letter
-                let cleanedType = type
-                  .replace(/administracion\s+publica\s*/gi, '')
-                  .replace(/servicios\s*/gi, '')
-                  .trim();
-                const label = cleanedType.charAt(0).toUpperCase() + cleanedType.slice(1).toLowerCase();
-
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setActiveFilter(type)}
-                    className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
-                      isActive
-                        ? 'bg-[#072357] text-white'
-                        : 'bg-white border border-[#072357]/10 text-[#072357]/70 active:bg-[#072357]/5'
-                    }`}
-                  >
-                    {label}
-                    <span
-                      className={`min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
-                        isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-[#072357]/10 text-[#072357]'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
+                )}
+                {showWasteTab && (
+              <button
+                type="button"
+                onClick={() => setActiveSection('waste')}
+                className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
+                  activeSection === 'waste'
+                    ? 'bg-[#072357] text-white'
+                    : 'bg-white border border-[#072357]/10 text-[#072357]/70 active:bg-[#072357]/5'
+                }`}
+              >
+                <Recycle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                Instalaciones de residuos
+                <span
+                  className={`min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
+                    activeSection === 'waste'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-[#072357]/10 text-[#072357]'
+                  }`}
+                >
+                  {allWasteInstallations.length}
+                </span>
+              </button>
+                )}
             </>
           )}
         </div>
       </div>
+      )}
 
-      {/* Administration cards grid */}
-      {loading ? (
+      {!loading && !hasAnyTab && (
+        <div className="text-center py-8 text-[#072357]/50">
+          <Shield className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No hay datos de administración en este municipio</p>
+        </div>
+      )}
+
+      {hasAnyTab && activeSection === 'administrations' && (
+        <div
+          className="relative -mx-4 sm:-mx-6 h-12 flex items-center bg-[#f5f8fa]"
+          style={bar2Top != null ? { position: 'sticky', top: bar2Top, zIndex: 10, backgroundColor: '#f5f8fa' } : undefined}
+        >
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f7fa] to-transparent z-10 pointer-events-none sm:hidden" />
+          <div
+            className="flex gap-1.5 overflow-x-auto h-full items-center px-4 sm:px-6 min-w-0 scrollbar-hide"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {administrationsLoading ? (
+              <>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton
+                    key={i}
+                    className="h-9 sm:h-10 w-24 sm:w-28 rounded-full shrink-0"
+                  />
+                ))}
+              </>
+            ) : (
+              <>
+                <button
+                  key="all"
+                  type="button"
+                  onClick={() => setActiveFilter('all')}
+                  className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
+                    activeFilter === 'all'
+                      ? 'bg-[#072357] text-white'
+                      : 'bg-white border border-[#072357]/10 text-[#072357]/70 active:bg-[#072357]/5'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  Todos
+                  <span
+                    className={`min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
+                      activeFilter === 'all'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-[#072357]/10 text-[#072357]'
+                    }`}
+                  >
+                    {countByType.all || 0}
+                  </span>
+                </button>
+                {uniqueTypes.map((type) => {
+                  const count = countByType[type] || 0;
+                  const isActive = activeFilter === type;
+                  let cleanedType = type
+                    .replace(/administracion\s+publica\s*/gi, '')
+                    .replace(/servicios\s*/gi, '')
+                    .trim();
+                  const label = cleanedType.charAt(0).toUpperCase() + cleanedType.slice(1).toLowerCase();
+
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setActiveFilter(type)}
+                      className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
+                        isActive
+                          ? 'bg-[#072357] text-white'
+                          : 'bg-white border border-[#072357]/10 text-[#072357]/70 active:bg-[#072357]/5'
+                      }`}
+                    >
+                      {label}
+                      <span
+                        className={`min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
+                          isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-[#072357]/10 text-[#072357]'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {hasAnyTab && (
+        <div className="relative">
+      {isLoading ? (
         <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
             <div
@@ -345,16 +656,33 @@ export function V0AdministrationView({ ineCode, municipalityName }: V0Administra
             </div>
           ))}
         </div>
-      ) : filteredAdministrations.length > 0 ? (
+      ) : activeSection === 'administrations' && filteredAdministrations.length > 0 ? (
         <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
           {filteredAdministrations.map((administration) => (
             <AdministrationCard key={administration.id} administration={administration} />
           ))}
         </div>
+      ) : activeSection === 'waste' && allWasteInstallations.length > 0 ? (
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+          {allWasteInstallations.map((installation) => (
+            <WasteInstallationCard key={installation.id} installation={installation} />
+          ))}
+        </div>
       ) : (
         <div className="text-center py-8 text-[#072357]/50">
-          <Shield className="w-10 h-10 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No hay administraciones públicas de este tipo en el municipio</p>
+          {activeSection === 'administrations' ? (
+            <>
+              <Shield className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No hay administraciones públicas de este tipo en el municipio</p>
+            </>
+          ) : (
+            <>
+              <Recycle className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No hay instalaciones de residuos en el municipio</p>
+            </>
+          )}
+        </div>
+      )}
         </div>
       )}
     </div>

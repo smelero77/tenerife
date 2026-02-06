@@ -355,12 +355,17 @@ function TrainingActivityCard({ activity, showTypeBadge = true }: { activity: Tr
 interface V0EducationViewProps {
   ineCode: string;
   municipalityName: string;
+  stickyOffsetTop?: number;
 }
 
-export function V0EducationView({ ineCode, municipalityName }: V0EducationViewProps) {
+const ROW_H = 48;
+
+export function V0EducationView({ ineCode, municipalityName, stickyOffsetTop }: V0EducationViewProps) {
   const [activeSection, setActiveSection] = useState<'centers' | 'activities'>('centers');
   const [activeFilter, setActiveFilter] = useState<string | 'all'>('all');
-  
+  const isSticky = stickyOffsetTop != null && stickyOffsetTop > 0;
+  const bar2Top = isSticky ? stickyOffsetTop + ROW_H : undefined;
+
   // Centers state
   const [allCenters, setAllCenters] = useState<EducationalCenter[]>([]);
   const [centersLoading, setCentersLoading] = useState(false);
@@ -492,29 +497,51 @@ export function V0EducationView({ ineCode, municipalityName }: V0EducationViewPr
   const uniqueTypes = activeSection === 'centers' ? uniqueCenterTypes : uniqueActivityTypes;
   const countByType = activeSection === 'centers' ? centerCountByType : activityCountByType;
 
+  const loading = centersLoading || activitiesLoading;
+  const showCentersTab = !centersLoading && allCenters.length > 0;
+  const futureActivitiesCount = activityCountByType.all || 0;
+  const showActivitiesTab = !activitiesLoading && futureActivitiesCount > 0;
+  const hasAnyTab = showCentersTab || showActivitiesTab;
+
+  useEffect(() => {
+    if (loading || !hasAnyTab) return;
+    const isCurrentVisible =
+      (activeSection === 'centers' && showCentersTab) ||
+      (activeSection === 'activities' && showActivitiesTab);
+    if (!isCurrentVisible) {
+      queueMicrotask(() => {
+        if (showCentersTab) setActiveSection('centers');
+        else if (showActivitiesTab) setActiveSection('activities');
+        setActiveFilter('all');
+      });
+    }
+  }, [loading, hasAnyTab, activeSection, showCentersTab, showActivitiesTab]);
+
   return (
-    <div className="space-y-4">
-      {/* Section selector */}
-      <div className="relative -mx-4 sm:-mx-6">
-        {/* Fade indicator on right to show more content */}
-        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f8fa] to-transparent z-10 pointer-events-none sm:hidden" />
-        
-        <div 
-          className="flex gap-2 overflow-x-auto pb-1 px-4 sm:px-6"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    <div className="space-y-0">
+      {hasAnyTab && (
+        <div
+          className="relative -mx-4 sm:-mx-6 h-12 flex items-center bg-[#f5f8fa]"
+          style={isSticky && stickyOffsetTop != null ? { position: 'sticky', top: stickyOffsetTop, zIndex: 20, backgroundColor: '#f5f8fa' } : undefined}
         >
-          <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
-          {(centersLoading || activitiesLoading) ? (
-            <>
-              {[1, 2].map((i) => (
-                <Skeleton
-                  key={i}
-                  className="h-9 sm:h-10 w-24 sm:w-28 rounded-full shrink-0"
-                />
-              ))}
-            </>
-          ) : (
-            <>
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f8fa] to-transparent z-10 pointer-events-none sm:hidden" />
+          <div
+            className="flex gap-1.5 overflow-x-auto h-full items-center px-4 sm:px-6 min-w-0 scrollbar-hide"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
+            {loading ? (
+              <>
+                {[1, 2].map((i) => (
+                  <Skeleton
+                    key={i}
+                    className="h-9 sm:h-10 w-24 sm:w-28 rounded-full shrink-0"
+                  />
+                ))}
+              </>
+            ) : (
+              <>
+                {showCentersTab && (
               <button
                 type="button"
                 onClick={() => setActiveSection('centers')}
@@ -536,6 +563,8 @@ export function V0EducationView({ ineCode, municipalityName }: V0EducationViewPr
                   {allCenters.length}
                 </span>
               </button>
+                )}
+                {showActivitiesTab && (
               <button
                 type="button"
                 onClick={() => setActiveSection('activities')}
@@ -570,17 +599,28 @@ export function V0EducationView({ ineCode, municipalityName }: V0EducationViewPr
                   })()}
                 </span>
               </button>
+                )}
             </>
           )}
         </div>
       </div>
+      )}
 
-      {/* Dynamic tabs based on unique types */}
-      <div className="relative -mx-4 sm:-mx-6">
+      {!loading && !hasAnyTab && (
+        <div className="text-center py-8 text-[#072357]/50">
+          <GraduationCap className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No hay datos de educación en este municipio</p>
+        </div>
+      )}
+
+      {hasAnyTab && (
+      <div
+        className="relative -mx-4 sm:-mx-6 h-12 flex items-center bg-[#f5f8fa]"
+        style={bar2Top != null ? { position: 'sticky', top: bar2Top, zIndex: 10, backgroundColor: '#f5f8fa' } : undefined}
+      >
         <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f7fa] to-transparent z-10 pointer-events-none sm:hidden" />
-
         <div
-          className="flex gap-2 overflow-x-auto pb-1 px-4 sm:px-6 scrollbar-hide"
+          className="flex gap-1.5 overflow-x-auto h-full items-center px-4 sm:px-6 min-w-0 scrollbar-hide"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {isLoading ? (
@@ -657,8 +697,10 @@ export function V0EducationView({ ineCode, municipalityName }: V0EducationViewPr
           )}
         </div>
       </div>
+      )}
 
-      {/* Content grid */}
+      {hasAnyTab && (
+        <div className="relative">
       {isLoading ? (
         <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
@@ -716,6 +758,8 @@ export function V0EducationView({ ineCode, municipalityName }: V0EducationViewPr
         <div className="text-center py-8 text-[#072357]/50">
           <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-30" />
           <p className="text-sm">No hay actividades formativas de este tipo en el municipio</p>
+        </div>
+      )}
         </div>
       )}
     </div>

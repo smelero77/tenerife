@@ -1,5 +1,26 @@
 import { supabase } from '@/lib/supabase/client';
 
+export interface ComplementarySpace {
+  id: string;
+  espacio_complementario_codigo: string;
+  espacio_complementario_nombre: string;
+  espacio_complementario_tipo?: string;
+  espacio_complementario_clase?: string;
+}
+
+export interface InstallationCharacteristic {
+  id: string;
+  categoria: string;
+  subcategoria?: string;
+  caracteristica: string;
+}
+
+export interface SpaceCharacteristic {
+  id: string;
+  categoria: string;
+  caracteristica: string;
+}
+
 export interface SportsInstallation {
   id: string;
   instalacion_codigo: string;
@@ -14,6 +35,8 @@ export interface SportsInstallation {
   latitud?: number;
   longitud?: number;
   espacios_deportivos?: SportsSpace[];
+  espacios_complementarios?: ComplementarySpace[];
+  caracteristicas?: InstallationCharacteristic[];
 }
 
 export interface SportsSpace {
@@ -27,6 +50,7 @@ export interface SportsSpace {
   espacio_cerramiento?: string;
   espacio_estado_uso?: string;
   espacio_iluminacion?: string;
+  caracteristicas?: SpaceCharacteristic[];
 }
 
 export interface SportsCenter {
@@ -76,14 +100,60 @@ export async function getSportsInstallationsByIne(
     return [];
   }
 
-  // Fetch sports spaces for each installation
+  // Fetch sports spaces, complementary spaces, and characteristics for each installation
   const installationsWithSpaces = await Promise.all(
     data.map(async (installation) => {
+      // Fetch sports spaces
       const { data: spaces } = await supabase
         .from('silver_espacio_deportivo')
         .select('*')
         .eq('instalacion_codigo', installation.instalacion_codigo)
         .order('espacio_nombre', { ascending: true });
+
+      // Fetch complementary spaces
+      const { data: complementarySpaces } = await supabase
+        .from('silver_espacio_complementario')
+        .select('*')
+        .eq('instalacion_codigo', installation.instalacion_codigo)
+        .order('espacio_complementario_nombre', { ascending: true });
+
+      // Fetch installation characteristics
+      const { data: installationCharacteristics } = await supabase
+        .from('silver_caracteristica_instalacion')
+        .select('*')
+        .eq('instalacion_codigo', installation.instalacion_codigo)
+        .order('categoria', { ascending: true });
+
+      // Fetch characteristics for each sports space
+      const spacesWithCharacteristics = await Promise.all(
+        (spaces || []).map(async (space) => {
+          const { data: spaceCharacteristics } = await supabase
+            .from('silver_caracteristica_espacio_deportivo')
+            .select('*')
+            .eq('espacio_codigo', space.espacio_codigo)
+            .order('categoria', { ascending: true });
+
+          return {
+            id: space.id,
+            espacio_codigo: space.espacio_codigo,
+            espacio_nombre: space.espacio_nombre,
+            espacio_tipo: space.espacio_tipo || undefined,
+            espacio_clase: space.espacio_clase || undefined,
+            espacio_actividad_principal:
+              space.espacio_actividad_principal || undefined,
+            pavimento_tipo: space.pavimento_tipo || undefined,
+            espacio_cerramiento: space.espacio_cerramiento || undefined,
+            espacio_estado_uso: space.espacio_estado_uso || undefined,
+            espacio_iluminacion: space.espacio_iluminacion || undefined,
+            caracteristicas:
+              spaceCharacteristics?.map((char) => ({
+                id: char.id,
+                categoria: char.categoria,
+                caracteristica: char.caracteristica,
+              })) || [],
+          };
+        })
+      );
 
       return {
         id: installation.id,
@@ -100,19 +170,21 @@ export async function getSportsInstallationsByIne(
         longitud: installation.longitud
           ? Number(installation.longitud)
           : undefined,
-        espacios_deportivos:
-          spaces?.map((space) => ({
-            id: space.id,
-            espacio_codigo: space.espacio_codigo,
-            espacio_nombre: space.espacio_nombre,
-            espacio_tipo: space.espacio_tipo || undefined,
-            espacio_clase: space.espacio_clase || undefined,
-            espacio_actividad_principal:
-              space.espacio_actividad_principal || undefined,
-            pavimento_tipo: space.pavimento_tipo || undefined,
-            espacio_cerramiento: space.espacio_cerramiento || undefined,
-            espacio_estado_uso: space.espacio_estado_uso || undefined,
-            espacio_iluminacion: space.espacio_iluminacion || undefined,
+        espacios_deportivos: spacesWithCharacteristics,
+        espacios_complementarios:
+          complementarySpaces?.map((comp) => ({
+            id: comp.id,
+            espacio_complementario_codigo: comp.espacio_complementario_codigo,
+            espacio_complementario_nombre: comp.espacio_complementario_nombre,
+            espacio_complementario_tipo: comp.espacio_complementario_tipo || undefined,
+            espacio_complementario_clase: comp.espacio_complementario_clase || undefined,
+          })) || [],
+        caracteristicas:
+          installationCharacteristics?.map((char) => ({
+            id: char.id,
+            categoria: char.categoria,
+            subcategoria: char.subcategoria || undefined,
+            caracteristica: char.caracteristica,
           })) || [],
       };
     })

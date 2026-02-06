@@ -30,7 +30,7 @@ export function MunicipalitySummaryComponent({
   selectedTownName,
   loading = false,
 }: MunicipalitySummaryProps) {
-  const { basic, wikimedia, snapshot, statistics } = data;
+  const { basic, wikimedia, snapshot, statistics, number_of_localities } = data;
 
   if (loading) {
     return <MunicipalitySummarySkeleton />;
@@ -298,8 +298,8 @@ export function MunicipalitySummaryComponent({
             </div>
             <div className="bg-muted rounded-lg p-4 flex flex-col items-center justify-center text-center">
               <div className="text-xl font-semibold mb-1">
-                {snapshot
-                  ? formatNumber(snapshot.number_of_nuclei)
+                {number_of_localities != null && number_of_localities >= 0
+                  ? formatNumber(number_of_localities)
                   : 'No disponible'}
               </div>
               <div className="text-sm text-muted-foreground">Localidades</div>

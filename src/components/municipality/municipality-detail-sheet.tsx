@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import {
   X,
   Building,
@@ -36,6 +36,20 @@ export function MunicipalityDetailSheet({
   const [copiedCoords, setCopiedCoords] = useState(false);
   const [coatOfArmsError, setCoatOfArmsError] = useState(false);
   const [coatOfArmsDirectUrl, setCoatOfArmsDirectUrl] = useState<string | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  // Medir altura de la cabecera para sticky de los tabs
+  useLayoutEffect(() => {
+    if (!headerRef.current || !data) return;
+    const el = headerRef.current;
+    const ro = new ResizeObserver(() => {
+      setHeaderHeight(el.offsetHeight);
+    });
+    ro.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, [data]);
 
   // Load municipality data when opened
   useEffect(() => {
@@ -160,22 +174,25 @@ export function MunicipalityDetailSheet({
           <div className="w-10 h-1 rounded-full bg-[#072357]/20" />
         </div>
 
-        {/* Close button */}
+        {/* Close button: por encima del área de scroll y de los sticky (z-30) */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#072357]/10 flex items-center justify-center z-10"
+          className="absolute top-4 right-4 z-[100] w-8 h-8 rounded-full bg-[#072357]/10 flex items-center justify-center hover:bg-[#072357]/20 active:bg-[#072357]/30 transition-colors"
         >
           <X className="w-4 h-4 text-[#072357]" />
         </button>
 
-        <div className="overflow-y-auto flex-1 pb-safe scrollbar-hide">
+        <div className="relative z-0 overflow-y-auto flex-1 pb-safe scrollbar-hide">
           {loading ? (
             <MunicipalityDetailSheetSkeleton />
           ) : data ? (
             <>
-              {/* Header - Clean and minimal */}
-              <div className="px-5 pb-4 pt-2">
+              {/* Cabecera fija: nombre y estadísticas */}
+              <div
+                ref={headerRef}
+                className="sticky top-0 z-20 bg-[#f5f8fa] px-5 pb-4 pt-2"
+              >
                 {/* Municipality name and codes */}
                 <div className="flex items-start gap-3">
                   {coatOfArmsDirectUrl && coatOfArmsDirectUrl.startsWith('http') && !coatOfArmsError ? (
@@ -256,7 +273,7 @@ export function MunicipalityDetailSheet({
                   </div>
                   <div className="flex items-center justify-center gap-1.5">
                     <p className="text-sm sm:text-base font-bold text-[#072357]">
-                      {formatNumber(snapshot?.number_of_nuclei)}
+                      {formatNumber(data?.number_of_localities)}
                     </p>
                     <span className="text-[10px] sm:text-xs text-[#072357]/50">
                       Localidades
@@ -265,13 +282,14 @@ export function MunicipalityDetailSheet({
                 </div>
               </div>
 
-              {/* Demographics View with tabs */}
+              {/* Tabs y contenido: tabs fijos, solo resultados con scroll */}
               <div className="px-5 mb-6">
                 <DemographicsView
                   municipality={data}
                   ineCode={ineCode}
                   selectedTownName={selectedTownName}
                   populationEvolution={null}
+                  stickyTabsTop={headerHeight}
                 />
               </div>
 

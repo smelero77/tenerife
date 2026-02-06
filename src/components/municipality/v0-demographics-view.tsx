@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Users,
@@ -20,6 +20,7 @@ import {
   Globe,
   Shield,
   Activity,
+  Factory,
 } from 'lucide-react';
 import {
   Pagination,
@@ -42,6 +43,9 @@ import { V0AdministrationView } from './v0-administration-view';
 import { V0TourismView } from './v0-tourism-view';
 import { V0CultureView } from './v0-culture-view';
 import { V0SportsView } from './v0-sports-view';
+import { V0AgricultureView } from './v0-agriculture-view';
+import { V0CommerceView } from './v0-commerce-view';
+import { V0CompaniesView } from './v0-companies-view';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function getTabs(stats: MunicipalitySummary['statistics']) {
@@ -64,13 +68,13 @@ function getTabs(stats: MunicipalitySummary['statistics']) {
       id: 'administracion',
       label: 'Administración',
       icon: Shield,
-      count: stats.administraciones_publicas,
+      count: (stats.administraciones_publicas || 0) + (stats.instalaciones_residuos || 0),
     },
     {
       id: 'cultura',
       label: 'Cultura',
       icon: Palette,
-      count: (stats.centros_culturales || 0) + (stats.bienes_interes_cultural || 0),
+      count: (stats.centros_culturales || 0) + (stats.bienes_interes_cultural || 0) + (stats.asociaciones_ciudadanas || 0),
     },
     {
       id: 'deportes',
@@ -84,7 +88,8 @@ function getTabs(stats: MunicipalitySummary['statistics']) {
       icon: Camera, 
       count: (stats.alojamientos_agencias_viajes || 0) + 
              (stats.establecimientos_hosteleria || 0) + 
-             (stats.oficinas_turismo || 0) 
+             (stats.oficinas_turismo || 0) +
+             (stats.equipamientos_uso_publico || 0)
     },
     {
       id: 'comercios',
@@ -95,7 +100,13 @@ function getTabs(stats: MunicipalitySummary['statistics']) {
         stats.locales_comerciales +
         stats.comercios_agricultura,
     },
-    { id: 'agricultura', label: 'Agricultura', icon: Wheat, count: null },
+    { id: 'agricultura', label: 'Agricultura', icon: Wheat, count: stats.comercios_agricultura },
+    {
+      id: 'empresas',
+      label: 'Empresas',
+      icon: Factory,
+      count: (stats.empresas_industriales || 0) + (stats.empresas_servicios || 0),
+    },
   ];
 }
 
@@ -104,6 +115,8 @@ interface DemographicsViewProps {
   ineCode: string;
   selectedTownName?: string;
   populationEvolution: PopulationStats | null;
+  /** Si se define, los tabs se fijan debajo de la cabecera del sheet (valor = top en px). */
+  stickyTabsTop?: number;
 }
 
 function DataRow({
@@ -150,10 +163,10 @@ function DataRow({
         </span>
       </div>
       <div className="grid grid-cols-4 gap-1 sm:gap-2 text-[10px] sm:text-xs font-medium text-[#072357]">
-        <div>{formatNumber(total)}</div>
-        <div className="text-center">{genderSplit}</div>
-        <div className="text-center">{nationalitySplit}</div>
-        <div className="text-center">{ageSplit}</div>
+        <div className="text-right">{formatNumber(total)}</div>
+        <div className="text-right">{genderSplit}</div>
+        <div className="text-right">{nationalitySplit}</div>
+        <div className="text-right">{ageSplit}</div>
       </div>
     </div>
   );
@@ -227,6 +240,7 @@ export function DemographicsView({
   ineCode,
   selectedTownName,
   populationEvolution: initialPopulationEvolution,
+  stickyTabsTop,
 }: DemographicsViewProps) {
   const [activeTab, setActiveTab] = useState('ayuntamiento');
   const municipalityImageUrl = useDirectImageUrl(municipality.wikimedia?.image_url || null);
@@ -237,7 +251,19 @@ export function DemographicsView({
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
-  const tabs = getTabs(municipality.statistics);
+  // Solo mostrar tabs con datos: count null (siempre) o count > 0
+  const tabs = useMemo(
+    () => getTabs(municipality.statistics).filter((t) => t.count === null || (t.count !== null && t.count > 0)),
+    [municipality.statistics]
+  );
+
+  // Si el tab activo ya no está visible (count pasó a 0), ir al primero visible
+  useEffect(() => {
+    const visibleIds = tabs.map((t) => t.id);
+    if (visibleIds.length > 0 && !visibleIds.includes(activeTab)) {
+      setActiveTab(visibleIds[0]);
+    }
+  }, [tabs, activeTab]);
 
   // Detectar si es móvil
   useEffect(() => {
@@ -274,50 +300,150 @@ export function DemographicsView({
     setCurrentPage(1);
   }, [selectedTownName]);
 
+  const tabsSticky = stickyTabsTop != null && stickyTabsTop > 0;
+  /** Altura fija de la barra de tabs (como en el patrón de 3 niveles). */
+  /** Altura fija de cada barra (como referencia: top-0, top-12, top-24 sin hueco). */
+  const MAIN_TABS_H = 48;
+  const stickyOffsetForTourism = tabsSticky ? (stickyTabsTop ?? 0) + MAIN_TABS_H : undefined;
+
+  /** Tabs que tienen sub-tabs internos: mismo comportamiento sticky que Turismo (space-y-0, stickyOffsetTop). */
+  const TABS_WITH_SUB_VIEWS = [
+    'turismo',
+    'cultura',
+    'deportes',
+    'educacion',
+    'administracion',
+    'empresas',
+    'comercios',
+    'agricultura',
+    'sanidad',
+  ] as const;
+  const hasStickySubTabs = TABS_WITH_SUB_VIEWS.includes(activeTab as (typeof TABS_WITH_SUB_VIEWS)[number]);
+
+  const mainTabsBar = (
+    <div
+      className="relative -mx-5 h-12 flex items-center bg-[#f5f8fa]"
+      style={
+        tabsSticky && stickyTabsTop != null
+          ? { position: 'sticky', top: stickyTabsTop, zIndex: 30, backgroundColor: '#f5f8fa' }
+          : undefined
+      }
+    >
+      <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f8fa] to-transparent z-10 pointer-events-none sm:hidden" />
+      <div
+        className="flex gap-1.5 overflow-x-auto h-full items-center px-5 min-w-0"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
+                isActive
+                  ? "bg-[#072357] text-white"
+                  : "bg-white border border-[#072357]/10 text-[#072357]/70 active:bg-[#072357]/5"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              {tab.label}
+              {tab.count !== null && (
+                <span 
+                  className={`min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
+                    isActive 
+                      ? "bg-white/20 text-white" 
+                      : "bg-[#072357]/10 text-[#072357]"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Horizontal scrollable tabs with fade indicator */}
-      <div className="relative -mx-5">
-        {/* Fade indicator on right to show more content */}
-        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#f5f8fa] to-transparent z-10 pointer-events-none sm:hidden" />
-        
-        <div 
-          className="flex gap-2 overflow-x-auto pb-1 px-5"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
-          <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
-                  isActive
-                    ? "bg-[#072357] text-white"
-                    : "bg-white border border-[#072357]/10 text-[#072357]/70 active:bg-[#072357]/5"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                {tab.label}
-                {tab.count !== null && (
-                  <span 
-                    className={`min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-[20px] flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${
-                      isActive 
-                        ? "bg-white/20 text-white" 
-                        : "bg-[#072357]/10 text-[#072357]"
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {/* Vistas con sub-tabs: mismo comportamiento que Turismo (sticky, space-y-0, misma distancia entre tabs) */}
+      {hasStickySubTabs ? (
+        <div className="space-y-0">
+          {mainTabsBar}
+          {activeTab === 'turismo' && (
+            <V0TourismView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
+          {activeTab === 'cultura' && (
+            <V0CultureView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
+          {activeTab === 'deportes' && (
+            <V0SportsView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
+          {activeTab === 'educacion' && (
+            <V0EducationView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
+          {activeTab === 'administracion' && (
+            <V0AdministrationView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              showSkeleton={false}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
+          {activeTab === 'empresas' && (
+            <V0CompaniesView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
+          {activeTab === 'comercios' && (
+            <V0CommerceView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
+          {activeTab === 'agricultura' && (
+            <V0AgricultureView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
+          {activeTab === 'sanidad' && (
+            <V0HealthcareView
+              ineCode={ineCode}
+              municipalityName={municipality.basic.municipio_name}
+              showSkeleton={false}
+              stickyOffsetTop={stickyOffsetForTourism}
+            />
+          )}
         </div>
-      </div>
+      ) : (
+        <>
+          {mainTabsBar}
 
       {activeTab === 'demografia' && (
         <div className="space-y-4 sm:space-y-6">
@@ -413,10 +539,10 @@ export function DemographicsView({
               {/* Single header for all */}
               <div className="px-3 sm:px-4 py-2 sm:py-3 bg-[#f8fafc] border-b border-[#072357]/10">
                 <div className="grid grid-cols-4 gap-1 sm:gap-2 text-[10px] sm:text-xs text-[#072357]/60 font-medium uppercase tracking-wider">
-                  <div>Total</div>
-                  <div className="text-center">Muj/Hom</div>
-                  <div className="text-center">Esp/Ext</div>
-                  <div className="text-center">0-14/15-64/+65</div>
+                  <div className="text-right">Total</div>
+                  <div className="text-right">Muj/Hom</div>
+                  <div className="text-right">Esp/Ext</div>
+                  <div className="text-right">0-14/15-64/+65</div>
                 </div>
               </div>
 
@@ -688,51 +814,7 @@ export function DemographicsView({
         </div>
       )}
 
-      {activeTab === 'sanidad' && (
-        <V0HealthcareView 
-          ineCode={ineCode} 
-          municipalityName={municipality.basic.municipio_name}
-          showSkeleton={false}
-        />
-      )}
-
-      {activeTab === 'educacion' && (
-        <V0EducationView 
-          ineCode={ineCode} 
-          municipalityName={municipality.basic.municipio_name}
-        />
-      )}
-
-      {activeTab === 'administracion' && (
-        <V0AdministrationView 
-          ineCode={ineCode} 
-          municipalityName={municipality.basic.municipio_name}
-          showSkeleton={false}
-        />
-      )}
-
-      {activeTab === 'turismo' && (
-        <V0TourismView 
-          ineCode={ineCode} 
-          municipalityName={municipality.basic.municipio_name}
-        />
-      )}
-
-      {activeTab === 'cultura' && (
-        <V0CultureView
-          ineCode={ineCode}
-          municipalityName={municipality.basic.municipio_name}
-        />
-      )}
-
-      {activeTab === 'deportes' && (
-        <V0SportsView
-          ineCode={ineCode}
-          municipalityName={municipality.basic.municipio_name}
-        />
-      )}
-
-      {activeTab !== 'ayuntamiento' && activeTab !== 'demografia' && activeTab !== 'sanidad' && activeTab !== 'educacion' && activeTab !== 'administracion' && activeTab !== 'turismo' && activeTab !== 'cultura' && activeTab !== 'deportes' && (
+      {activeTab !== 'ayuntamiento' && activeTab !== 'demografia' && (
         <div className="bg-white rounded-xl sm:rounded-2xl p-6 sm:p-8 border border-[#072357]/5 text-center">
           <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#072357]/10 flex items-center justify-center mx-auto mb-3 sm:mb-4">
             {tabs.find((t) => t.id === activeTab)?.icon && (
@@ -753,6 +835,8 @@ export function DemographicsView({
             Próximamente disponible
           </p>
         </div>
+      )}
+        </>
       )}
     </div>
   );
